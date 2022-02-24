@@ -83,9 +83,12 @@ def ocr(test_img, characters):
     #TODO
     #enrollment()
 
-    detection(test_img)
+    json_map = detection(test_img)
     
     recognition()
+    
+    #with open("results.json", "w") as write_file:
+    #    json.dump(json_map, write_file)
     
     #TODO
     #raise NotImplementedError
@@ -167,9 +170,9 @@ def detection(data):
             if (image[row][col] < 255):
                 labels[row][col] = find(linked, labels[row][col])
       
-    data_map = []
+    json_map = []
     color = (0, 0, 0)
-    for i, label in enumerate(np.unique(labels)):
+    for label in np.unique(labels):
         #print(np.where(labels == label)[0])
         if label != 0:
             #print("For label:", label)
@@ -180,14 +183,13 @@ def detection(data):
             y = int(np.min(temp[0]))
             w = int(np.max(temp[1]) - np.min(temp[1]))
             h = int(np.max(temp[0]) - np.min(temp[0]))
-            data_map.append({"bbox": [x, y, w, h], "name": ""})
+            json_map.append({"bbox": [x, y, w, h], "name": ""})
     #num = 0
     #print(labels[bbox[num][0]:bbox[num][1], bbox[num][2]:bbox[num][3]]*255)
     #show_image(data, delay=10000)
     
     
-    with open("results.json", "w") as write_file:
-        json.dump(data_map, write_file)
+    
     #print("counter: ", label_counter)
     #print("map: ", linked)
     
@@ -196,6 +198,7 @@ def detection(data):
     #show_image(labels, delay=5000)
     #TODO
     #raise NotImplementedError
+    return json_map
 
 
 def find(data, i):
