@@ -85,7 +85,7 @@ def ocr(test_img, characters):
 
     json_map = detection(test_img)
     
-    recognition()
+    recognition(test_img, json_map, characters)
     
     #with open("results.json", "w") as write_file:
     #    json.dump(json_map, write_file)
@@ -214,7 +214,7 @@ def union(data, i, j):
 def connected(data, i, j):
     return find(data, i) == find(data, j)
 
-def recognition():
+def recognition(data, json_map, characters):
     """ 
     Args:
         You are free to decide the input arguments.
@@ -222,6 +222,31 @@ def recognition():
     You are free to decide the return.
     """
     # TODO: Step 3 : Your Recognition code should go here.
+    
+    '''for i, item in enumerate(json_map):
+        x, y, w, h = item["bbox"]
+        print(f"{i}:")
+        print(data[y:y+h, x:x+w])'''
+    #2: index 4
+    #a: index 13
+    x, y, w, h = json_map[4]["bbox"]
+    #print(data[y:y+h, x:x+w])
+    #characters[0][1][1:-1, 4:-5] #2
+    #characters[1][1][1:-1, 2:-4] #a
+    template = np.array(characters[0][1][1:-1, 4:-5])
+    image = np.array(data[y:y+h, x:x+w])
+    '''a = (a - np.mean(a)) / (np.std(a) * len(a))
+    b = (b - np.mean(b)) / (np.std(b))
+    c = np.correlate(a, b, 'full')
+    print(c)'''
+    '''for irow in range(image.shape[0]):
+        for icol in range(image.shape[1]):
+            CCorr = 0
+            for trow in range(template.shape[0]):
+                for tcol in range(template.shape[1]):
+                    CCorr += abs(image[irow][icol]- template[trow][tcol])
+    print(CCorr)'''
+                  
     
     #TODO
     #raise NotImplementedError
