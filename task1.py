@@ -84,17 +84,40 @@ def ocr(test_img, characters):
 
     # TODO
     # enrollment()
-
+    # show_ground(test_img)
+    # return
     json_map = detection(test_img)
 
-    recognition(test_img, json_map, characters)
+    results = recognition(test_img, json_map, characters)
 
     # with open("results.json", "w") as write_file:
-    #    json.dump(json_map, write_file)
+    #     json.dump(json_map, write_file)
+    return results
 
     # TODO
     # raise NotImplementedError
 
+
+# TODO
+def show_ground(data):
+    color = (0, 0, 0)
+    ground = np.array(data)
+    with open("data/groundtruth.json") as file:
+        groundtruth = json.load(file)
+
+    for j, item in enumerate(groundtruth):
+        x, y, w, h = item["bbox"]
+        cv2.rectangle(ground, (x, y), (x+w, y+h), color, 1)
+    show_image(ground, delay=10000)
+
+    res = np.array(data)
+    with open("results.json") as file:
+        results = json.load(file)
+
+    for j, item in enumerate(results):
+        x, y, w, h = item["bbox"]
+        cv2.rectangle(res, (x, y), (x+w, y+h), color, 1)
+    show_image(res, delay=10000)
 
 def enrollment():
     """ Args:
@@ -187,7 +210,7 @@ def detection(data):
             y = int(np.min(temp[0]))
             w = int(np.max(temp[1]) - np.min(temp[1]))
             h = int(np.max(temp[0]) - np.min(temp[0]))
-            json_map.append({"bbox": [x, y, w, h], "name": ""})
+            json_map.append({"bbox": [x, y, w, h], "name": "UNKNOWN"})
     # num = 0
     # print(labels[bbox[num][0]:bbox[num][1], bbox[num][2]:bbox[num][3]]*255)
     # show_image(data, delay=10000)
@@ -279,91 +302,99 @@ def recognition(data, json_map, characters):
     # 117
     # 118
 
-    # For c best 90 with BW
+    # For c best .92 with BW
     # 24
     # 69
     # 89
     # 105
-
-    corrs = []
+    # ncc_map = []
     # print(f"for char: {characters[2][0]}")
-    # print(characters[2][1][2:-2, 1:-3])
-    for i, item in enumerate(json_map):
-        x, y, w, h = item["bbox"]
-        # if(i == 141):
-        # print(data[y:y+h, x:x+w])
-        # print(data[y:y+h, x:x+w])
-        # 2: index 4
-        # a: index 13
-        # x, y, w, h = json_map[4]["bbox"]
-        # print(data[y:y+h, x:x+w])
+
+    for i, char in enumerate(characters):
         # characters[0][1][1:-1, 4:-5] #2
         # characters[1][1][1:-1, 2:-4] #a
         # characters[2][1][2:-2, 1:-3] #c
         # characters[3][1][3:-2, 2:-5] #dot
-        # characters[4][1][1:-3,1:-4] #e
-        template = np.array(characters[2][1][2:-2, 1:-3])
-        image = np.array(data[y:y + h, x:x + w])
-        # image = np.where(image <= 100, 0, 255)
-        template = np.where(template <= 100, 0, 255)
-        # get the maximum of both sizes
-        max_size = (np.max([template.shape[0], image.shape[0]]), np.max([template.shape[1], image.shape[1]]))
-        # maps the smaller image onto bigger
-        centered_image = np.ones(max_size) * 255
-        centered_template = np.ones(max_size) * 255
-        image_min = np.subtract(max_size, image.shape) // 2
-        image_max = np.add(max_size, image.shape) // 2
-        template_min = np.subtract(max_size, template.shape) // 2
-        template_max = np.add(max_size, template.shape) // 2
-        # sets the values
-        centered_image[image_min[0]: image_max[0], image_min[1]: image_max[1]] = image
-        centered_template[template_min[0]:template_max[0], template_min[1]:template_max[1]] = template
-        # if(i == 53 or i == 54 or i == 95 or i == 143):
-        #     print(centered_image)
-        #     print("||||")
-        #     print(centered_template)
-        # releases unused memory
-        del template, image
+        # characters[4][1][1:-3, 1:-4] #e
+        print(f"Loop for {char[0]}: ")
+        template = np.array(char[1])
+        # curr_ncc_map = []
+        for j, item in enumerate(json_map):
+            x, y, w, h = item["bbox"]
+            image = np.array(data[y:y + h, x:x + w])
+            # if(j == 141):
+            # print(data[y:y+h, x:x+w])
+            # print(data[y:y+h, x:x+w])
+            # 2: index 4
+            # a: index 13
+            # x, y, w, h = json_map[4]["bbox"]
+            # print(data[y:y+h, x:x+w])
+            image = np.where(image <= 100, 0, 255)
+            template = np.where(template <= 100, 0, 255)
+            # get the maximum of both sizes
+            max_size = (np.max([template.shape[0], image.shape[0]]), np.max([template.shape[1], image.shape[1]]))
+            # maps the smaller image onto bigger
+            centered_image = np.ones(max_size) * 255
+            centered_template = np.ones(max_size) * 255
+            image_min = np.subtract(max_size, image.shape) // 2
+            image_max = np.add(max_size, image.shape) // 2
+            template_min = np.subtract(max_size, template.shape) // 2
+            template_max = np.add(max_size, template.shape) // 2
+            # sets the values
+            centered_image[image_min[0]: image_max[0], image_min[1]: image_max[1]] = image
+            centered_template[template_min[0]:template_max[0], template_min[1]:template_max[1]] = template
+            # if(i == 53 or i == 54 or i == 95 or i == 143):
+            #     print(centered_image)
+            #     print("||||")
+            #     print(centered_template)
+            # releases unused memory
+            del image
 
-        # norm_a = np.linalg.norm(centered_image)
-        # centered_image = centered_image / norm_a
-        # norm_b = np.linalg.norm(centered_template)
-        # centered_template = centered_template / norm_b
-        image_mean = np.mean(centered_image)
-        template_mean = np.mean(centered_template)
-        image_std = np.std(centered_image)
-        template_std = np.std(centered_template)
-
-        summation = np.sum(np.multiply((centered_image - image_mean), (centered_template - template_mean)))
-        if summation == 0 and (image_std == 0 or template_std == 0):
-            corr = 1000
-        else:
-            corr = np.divide(summation, (np.std(centered_image) * np.std(centered_template)))
-        corrs.append(corr)
-        # print(f"{i}: {corr}")
+            # NCC
+            numerator = np.sum(np.multiply(centered_image, centered_template))
+            denominator = np.sqrt(np.multiply(np.sum(np.square(centered_image)), np.sum(np.square(centered_template))))
+            if ((numerator / denominator) > 0.60):
+                # curr_ncc_map.append(j)
+                # print(j)
+                json_map[j]["name"] = str(char[0])
+    return json_map
+    # PMCC
+    # image_mean = np.mean(centered_image)
+    # template_mean = np.mean(centered_template)
+    # image_std = np.std(centered_image)
+    # template_std = np.std(centered_template)
+    # print(image_mean)
+    # print(image_std, "\n")
+    # summation = np.sum(np.multiply((centered_image - image_mean), (centered_template - template_mean)))
+    # if summation == 0 and (image_std == 0 or template_std == 0):
+    #     corr = 1000
+    # else:
+    #     corr = np.divide(summation, (np.std(centered_image) * np.std(centered_template)))
+    # corrs.append(corr)
+    # print(f"{i}: {corr}")
     # mean_corr = np.mean(corrs)
-    max_corr = np.max(corrs) * 0.9
-    for i, corr in enumerate(corrs):
-        if (corr > max_corr):
-            print(i)
-
-    '''for irow in range(image.shape[0]):
-        for icol in range(image.shape[1]):
-            CCorr = 0
-            for trow in range(template.shape[0]):
-                for tcol in range(template.shape[1]):
-                    CCorr += abs(image[irow][icol]- template[trow][tcol])
-    print(CCorr)'''
+    # max_corr = np.max(corrs) * 0.9
+    # print(max_corr)
+    # for i, corr in enumerate(corrs):
+    #     if (corr > max_corr):
+    #         print(i)
+    # for irow in range(image.shape[0]):
+    #     for icol in range(image.shape[1]):
+    #         CCorr = 0
+    #         for trow in range(template.shape[0]):
+    #             for tcol in range(template.shape[1]):
+    #                 CCorr += abs(image[irow][icol]- template[trow][tcol])
+    # print(CCorr)
 
     # TODO
     # raise NotImplementedError
 
 
-def save_results(coordinates, rs_directory):
+# TODO
+def save_results(results, rs_directory):
     """
     Donot modify this code
     """
-    results = []
     with open(os.path.join(rs_directory, 'results.json'), "w") as file:
         json.dump(results, file)
 
@@ -384,10 +415,9 @@ def main():
         characters.append([character_name, read_image(each_character, show=False)])
 
     test_img = read_image(args.test_img)
-
     results = ocr(test_img, characters)
     # TODO
-    # save_results(results, args.rs_directory)
+    save_results(results, args.rs_directory)
 
 
 if __name__ == "__main__":
