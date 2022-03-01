@@ -83,13 +83,13 @@ def ocr(test_img, characters):
     # TODO Add your code here. Do not modify the return and input arguments
 
     # TODO
-    template_kps = enrollment(characters)
+    template_zone_vectors = enrollment(characters)
     # show_ground(test_img)
     # return
 
     json_map = detection(test_img)
     # return
-    # FAST
+    # SIFT
     # for i, item in enumerate(json_map):
     #     x, y, w, h = item["bbox"]
     #     img = np.array(test_img[y:y + h, x:x + w])
@@ -97,20 +97,37 @@ def ocr(test_img, characters):
     #     kp = sift.detect(img, None)
     #     img = cv2.drawKeypoints(img, kp, img)
     #     cv2.imwrite(f'features/image_keypoints_{i}.jpg', img)
-    return
-    # FAST detection
-    image_kps = []
-    for i, item in enumerate(json_map):
+
+    template_max_height = 30
+    image_zone_vectors = []
+    for index, item in enumerate(json_map):
         x, y, w, h = item["bbox"]
         img = np.array(test_img[y:y + h, x:x + w])
-        # img = np.pad(img, 2, 'constant', constant_values=(255))
-        # fast = cv2.FastFeatureDetector_create()
-        # kp: tuple = fast.detect(img)
-        # image_kps.append([key_point.pt for key_point in kp])
-        # img = cv2.drawKeypoints(img, kp, np.array([]), (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv2.imwrite(f'features/image_keypoints_{i}.jpg', img)
+        if(np.all(img <= 100)):
+            json_map[index]["name"] = "dot"
+        print("old:", img.shape)
+        img = cv2.resize(img, (round((template_max_height * img.shape[1]) / img.shape[0]), template_max_height), interpolation=cv2.INTER_NEAREST)
+        # Calculating zoning vector  from 3 x 3 area
+        print("resized:", img.shape)
+        # adds white rows and cols as long as it is divisible by 3
+        while (img.shape[0] % 3 != 0):
+            img = np.append(img, np.ones((1, img.shape[1]), dtype=np.uint8) * 255, axis=0)
+        while (img.shape[1] % 3 != 0):
+            img = np.append(img, np.ones((img.shape[0], 1), dtype=np.uint8) * 255, axis=1)
+        print("new:", img.shape)
+        # Calculating pixel count for each zone
+        zone_vector = []
+        zone_shape = (img.shape[0] // 3, img.shape[1] // 3)  # eg 9,8
+        for i in range(3):
+            for j in range(3):
+                pixel_count = 0
+                # print("zones:", i*zone_shape[0], ":", (i*zone_shape[0] + zone_shape[0]), ",", j*zone_shape[1], ":", (j*zone_shape[1] + zone_shape[1]))
+                img_zone = img[i * zone_shape[0]:(i * zone_shape[0] + zone_shape[0]), j * zone_shape[1]:(j * zone_shape[1] + zone_shape[1])]
+                img_zone = np.where(img_zone <= 100, 1, 0)
+                zone_vector.append(np.sum(img_zone))
+        image_zone_vectors.append(zone_vector)
 
-    results = recognition(image_kps, template_kps, json_map, characters)
+    results = recognition(template_zone_vectors, image_zone_vectors, json_map, characters)
 
     # with open("results.json", "w") as write_file:
     #     json.dump(json_map, write_file)
@@ -140,24 +157,47 @@ def enrollment(characters):
     #     img = cv2.drawKeypoints(img, kp, img)
     #     cv2.imwrite(f'features/template_keypoints_{char[0]}.jpg', img)
 
-    # FAST detection
-    template_kps = []
+    template_max_height = 30
+    template_zone_vectors = []
+    print("max template height:", template_max_height)
     for char in characters:
         print("for feature:", char[0])
         img: np.ndarray = char[1]
-        print("img shape:", img.shape)
-        # trimming white borders
+
+        # Trimming white borders
         del_cols = np.where(np.mean(img, axis=0) > 245)
         img = np.delete(img, del_cols, axis=1)
         del_rows = np.where(np.mean(img, axis=1) > 245)
         img = np.delete(img, del_rows, axis=0)
+        print("old:", img.shape)
+        img = cv2.resize(img, (round((template_max_height*img.shape[1])/img.shape[0]), template_max_height), interpolation=cv2.INTER_NEAREST)
+        # Calculating zoning vector  from 3 x 3 area
+        print("resized:", img.shape)
+        # adds white rows and cols as long as it is divisible by 3
+        while (img.shape[0] % 3 != 0):
+            img = np.append(img, np.ones((1, img.shape[1]), dtype=np.uint8)*255, axis=0)
+        while (img.shape[1] % 3 != 0):
+            img = np.append(img, np.ones((img.shape[0], 1), dtype=np.uint8)*255, axis=1)
+        print("new:", img.shape)
+        # Calculating pixel count for each zone
+        zone_vector = []
+        zone_shape = (img.shape[0] // 3, img.shape[1] // 3)     # eg 9,8
+        for i in range(3):
+            for j in range(3):
+                pixel_count = 0
+                # print("zones:", i*zone_shape[0], ":", (i*zone_shape[0] + zone_shape[0]), ",", j*zone_shape[1], ":", (j*zone_shape[1] + zone_shape[1]))
+                img_zone = img[i*zone_shape[0]:(i*zone_shape[0] + zone_shape[0]), j*zone_shape[1]:(j*zone_shape[1] + zone_shape[1])]
+                img_zone = np.where(img_zone <= 100, 1, 0)
+                zone_vector.append(np.sum(img_zone))
+        template_zone_vectors.append(zone_vector)
         # img = np.delete(img, np.where(np.mean(img, axis=1) > 250))
         # fast = cv2.FastFeatureDetector_create()
         # kp: tuple = fast.detect(img)
         # template_kps.append([key_point.pt for key_point in kp])
         # img = cv2.drawKeypoints(img, kp, np.array([]), (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv2.imwrite(f'features/template_keypoints_{char[0]}.jpg', img)
-    return template_kps
+        # cv2.imwrite(f'features/template_keypoints_{char[0]}.jpg', img)
+    print(template_zone_vectors)
+    return template_zone_vectors
     # raise NotImplementedError
 
 
@@ -268,7 +308,7 @@ def detection(data):
     return json_map
 
 
-def recognition(image_kps: list, template_kps: list, json_map, characters):
+def recognition(template_zvs: list, image_zvs: list, json_map, characters):
     """ 
     Args:
         You are free to decide the input arguments.
@@ -350,18 +390,17 @@ def recognition(image_kps: list, template_kps: list, json_map, characters):
     #             # print(j)
     #             json_map[j]["name"] = str(char[0])
     # return json_map
-
-    for i, img_kp in enumerate(image_kps):
-        for j, tmplt_kp in enumerate(template_kps):
-            goodmatch = 0
-            for m, kpi in enumerate(img_kp):
-                for n, kpt in enumerate(tmplt_kp):
-                    x1, y1 = kpi
-                    x2, y2 = kpt
-                    if (np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2) < 4):
-                        goodmatch += 1
-            print(i, characters[j][0], goodmatch)
-
+    for i, image_zv in enumerate(image_zvs):
+        cos_sims = []
+        if(json_map[i]["name"] != "UNKNOWN"):
+            continue
+        for j, template_zv in enumerate(template_zvs):
+            num = np.sum(np.multiply(image_zv, template_zv))
+            denum = np.multiply(np.sqrt(np.sum(np.square(image_zv))), np.sqrt(np.sum(np.square(template_zv))))
+            cos_sims.append(num/denum)
+        max_index = np.argmax(cos_sims)
+        if (cos_sims[max_index] >= 0.98):
+            print(f" for {i}, {characters[max_index][0]}:", cos_sims[max_index])
     # TODO
     # raise NotImplementedError
 
