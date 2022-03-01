@@ -4,6 +4,6 @@ How to run test1.py:
 
 How to run evaluate.py:
 
-`python evaluate.py --preds predicted.json --groundtruth groundtruth.json`
+`python evaluate.py --preds results.json --groundtruth data/groundtruth.json`
 
 to get the F1 score between generated and the ground truth to measure the performance.
