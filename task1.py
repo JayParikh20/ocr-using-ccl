@@ -20,6 +20,7 @@ import numpy as np
 
 # TODO
 import sys
+
 large_width = 400
 np.set_printoptions(linewidth=large_width)
 np.set_printoptions(threshold=sys.maxsize)
@@ -82,19 +83,22 @@ def ocr(test_img, characters):
             list should start from top left, then move from left to right. After finishing the first line, go to the next line and continue.
         
     """
-    scaled_height = 32
-    grid_size = (16, 8)
+    # Best 24 with grid (4, 6) - 0.958
+    # Best 32 with grid (5, 8) - 0.945
+    scaled_size = 24
+    grid_size = (4, 6)
 
     # Template Features
-    enrollment(characters, grid_size, scaled_height)
+    enrollment(characters, grid_size, scaled_size)
 
-    json_map = detection(test_img, grid_size, scaled_height)
+    json_map = detection(test_img, grid_size, scaled_size)
 
     results = recognition(json_map, characters)
+
     return results
 
 
-def enrollment(characters, grid_size, scaled_height):
+def enrollment(characters, grid_size, scaled_size):
     """ Args:
         You are free to decide the input arguments.
     Returns:
@@ -110,21 +114,32 @@ def enrollment(characters, grid_size, scaled_height):
         img = np.delete(img, del_cols, axis=1)
         del_rows = np.where(np.mean(img, axis=1) > 245)
         img = np.delete(img, del_rows, axis=0)
-        img = cv2.resize(img, (round((scaled_height*img.shape[1])/img.shape[0]), scaled_height), interpolation=cv2.INTER_NEAREST)
 
-        # Calculating zoning vector from grid size zones
-        # adds white rows and cols as long as it is divisible by grid size
-        while (img.shape[0] % grid_size[0] != 0):
-            img = np.append(img, np.ones((1, img.shape[1]), dtype=np.uint8)*255, axis=0)
-        while (img.shape[1] % grid_size[1] != 0):
-            img = np.append(img, np.ones((img.shape[0], 1), dtype=np.uint8)*255, axis=1)
+        # Scaling image to fixed size
+        if (img.shape[0] >= img.shape[1]):
+            img = cv2.resize(img, (round((scaled_size * img.shape[1]) / img.shape[0]), scaled_size), interpolation=cv2.INTER_NEAREST)
+        else:
+            img = cv2.resize(img, (scaled_size, round((scaled_size * img.shape[0]) / img.shape[1])), interpolation=cv2.INTER_NEAREST)
+
+        # Generating Template Zoning Features
+        # Overlays the image onto fixed scaled template
+        temp_img = np.ones((scaled_size, scaled_size), dtype=np.uint8) * 255
+        x_lower, y_lower = temp_img.shape[0] // 2 - img.shape[0] // 2, temp_img.shape[1] // 2 - img.shape[1] // 2
+        x_higher, y_higher = temp_img.shape[0] // 2 + img.shape[0] // 2, temp_img.shape[1] // 2 + img.shape[1] // 2
+        if(img.shape[0] % 2 != 0):
+            x_lower -= 1
+        if (img.shape[1] % 2 != 0):
+            y_lower -= 1
+        temp_img[x_lower: x_higher, y_lower: y_higher] = img
+        img = temp_img
+        del temp_img
 
         # Calculating pixel count for each zone
         zone_vector = []
-        zone_shape = (img.shape[0] // grid_size[0], img.shape[1] // grid_size[1])     # eg 9,8
+        zone_shape = (img.shape[0] // grid_size[0], img.shape[1] // grid_size[1])  # eg 9,8
         for i in range(grid_size[0]):
             for j in range(grid_size[1]):
-                img_zone = img[i*zone_shape[0]:(i*zone_shape[0] + zone_shape[0]), j*zone_shape[1]:(j*zone_shape[1] + zone_shape[1])]
+                img_zone = img[i * zone_shape[0]:(i * zone_shape[0] + zone_shape[0]), j * zone_shape[1]:(j * zone_shape[1] + zone_shape[1])]
                 img_zone = np.where(img_zone <= 100, 1, 0)
                 zone_vector.append(int(np.sum(img_zone)))
         template_zone_vectors.append(zone_vector)
@@ -134,7 +149,7 @@ def enrollment(characters, grid_size, scaled_height):
         json.dump(zoning_features, file)
 
 
-def detection(data, grid_size, scaled_height):
+def detection(data, grid_size, scaled_size):
     """ 
     Use connected component labeling to detect various characters in an test_img.
     Args:
@@ -142,6 +157,7 @@ def detection(data, grid_size, scaled_height):
     Returns:
     You are free to decide the return.
     """
+
     def search(tree, child):
         if child != tree[child]:
             tree[child] = search(tree, tree[child])
@@ -203,19 +219,28 @@ def detection(data, grid_size, scaled_height):
             h = int(np.max(temp[0]) - np.min(temp[0]))
             json_map.append({"bbox": [x, y, w, h], "name": "UNKNOWN"})
 
-    # Image Features
+    # Generating Image Zoning Features
     image_zone_vectors = []
     for index, item in enumerate(json_map):
         x, y, w, h = item["bbox"]
         img = np.array(data[y:y + h, x:x + w])
-        img = cv2.resize(img, (round((scaled_height * img.shape[1]) / img.shape[0]), scaled_height), interpolation=cv2.INTER_NEAREST)
+        if(img.shape[0] >= img.shape[1]):
+            img = cv2.resize(img, (round((scaled_size * img.shape[1]) / img.shape[0]), scaled_size), interpolation=cv2.INTER_NEAREST)
+        else:
+            img = cv2.resize(img, (scaled_size, round((scaled_size * img.shape[0]) / img.shape[1])), interpolation=cv2.INTER_NEAREST)
 
         # Calculating zoning vector from grid size zones
-        # adds white rows and cols as long as it is divisible by grid size
-        while (img.shape[0] % grid_size[0] != 0):
-            img = np.append(img, np.ones((1, img.shape[1]), dtype=np.uint8) * 255, axis=0)
-        while (img.shape[1] % grid_size[1] != 0):
-            img = np.append(img, np.ones((img.shape[0], 1), dtype=np.uint8) * 255, axis=1)
+        # Overlays the image onto fixed scaled template
+        temp_img = np.ones((scaled_size, scaled_size), dtype=np.uint8) * 255
+        x_lower, y_lower = temp_img.shape[0] // 2 - img.shape[0] // 2, temp_img.shape[1] // 2 - img.shape[1] // 2
+        x_higher, y_higher = temp_img.shape[0] // 2 + img.shape[0] // 2, temp_img.shape[1] // 2 + img.shape[1] // 2
+        if (img.shape[0] % 2 != 0):
+            x_lower -= 1
+        if (img.shape[1] % 2 != 0):
+            y_lower -= 1
+        temp_img[x_lower: x_higher, y_lower: y_higher] = img
+        img = temp_img
+        del temp_img
 
         # Calculating pixel count for each zone
         zone_vector = []
@@ -271,7 +296,7 @@ def recognition(json_map, characters):
         for j, template_zv in enumerate(template_zone_vectors):
             num = np.sum(np.multiply(image_zv, template_zv))
             denum = np.multiply(np.sqrt(np.sum(np.square(image_zv))), np.sqrt(np.sum(np.square(template_zv))))
-            cos_sims.append(num/denum)
+            cos_sims.append(num / denum)
         max_index = np.argmax(cos_sims)
         if (cos_sims[max_index] >= 0.92):
             json_map[i]["name"] = characters[max_index][0]
@@ -288,7 +313,6 @@ def save_results(results, rs_directory):
 
 
 def main():
-
     args = parse_args()
 
     characters = []
