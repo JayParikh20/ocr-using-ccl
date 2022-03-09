@@ -1,3 +1,4 @@
+# OpenCV version 4.5.4
 """
 Character Detection
 
@@ -19,11 +20,10 @@ import cv2
 import numpy as np
 
 # TODO
-import sys
-
-large_width = 400
-np.set_printoptions(linewidth=large_width)
-np.set_printoptions(threshold=sys.maxsize)
+# import sys
+# large_width = 400
+# np.set_printoptions(linewidth=large_width)
+# np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_image(img_path, show=False):
@@ -48,7 +48,6 @@ def show_image(img, delay=1000):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="cse 473/573 project 1.")
-    # TODO
     parser.add_argument(
         "--test_img", type=str, default="./data/test_img.jpg",
         help="path to the image used for character detection (do not change this arg)")
@@ -84,7 +83,7 @@ def ocr(test_img, characters):
         
     """
     # Best 24 with grid (4, 6) - 0.958
-    # Best 32 with grid (5, 8) - 0.945
+    # 2nd Best 32 with grid (5, 8) - 0.945
     scaled_size = 24
     grid_size = (4, 6)
 
@@ -158,13 +157,13 @@ def detection(data, grid_size, scaled_size):
     You are free to decide the return.
     """
 
-    def search(tree, child):
+    def find(tree, child):
         if child != tree[child]:
-            tree[child] = search(tree, tree[child])
+            tree[child] = find(tree, tree[child])
         return tree[child]
 
     def merge(tree, child, parent):
-        c, p = search(tree, child), search(tree, parent)
+        c, p = find(tree, child), find(tree, parent)
         if p != c:
             tree[c] = p
 
@@ -207,7 +206,7 @@ def detection(data, grid_size, scaled_size):
     for row in range(image.shape[0]):
         for col in range(image.shape[1]):
             if (image[row][col] < 255):
-                labels[row][col] = search(linked, labels[row][col])
+                labels[row][col] = find(linked, labels[row][col])
 
     json_map = []
     for label in np.unique(labels):
@@ -279,12 +278,13 @@ def recognition(json_map, characters):
     # 4, 80, 123, 124 #num: 4
     # For a
     # 13, 16, 38, 48, 73, 75*, 112, 140, 141 #num: 9
+    # For c
+    # 24, 69, 89, 105 #num: 4
     # For dot
     # 53, 54, 95, 139 #num: 4
     # For e
     # 20, 26, 39, 40, 49, 50, 52, 77, 94, 107, 109, 113, 117, 118 #num: 14
-    # For c
-    # 24, 69, 89, 105 #num: 4
+
     # Total: 35
     with open(os.path.join('features', 'zoning_features.json'), "r") as file:
         zoning_map = json.load(file)
