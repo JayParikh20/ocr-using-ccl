@@ -157,21 +157,11 @@ def detection(data, grid_size, scaled_size):
     You are free to decide the return.
     """
 
-    def find(tree, child):
-        if child != tree[child]:
-            tree[child] = find(tree, tree[child])
-        return tree[child]
-
-    def merge(tree, child, parent):
-        c, p = find(tree, child), find(tree, parent)
-        if p != c:
-            tree[c] = p
-
     bw_threshold = 100
 
     image = np.array(data)
     image = np.where(image <= bw_threshold, 0, 255)
-    link_map = []
+    link_pairs = []
     labels = np.zeros((image.shape), dtype=np.uint64)
     label_counter = 1
 
@@ -196,17 +186,27 @@ def detection(data, grid_size, scaled_size):
                     else:
                         labels[row][col] = np.min(neighbors)
                         if (neighbors[0] != neighbors[1]):  # both neighbors are not same, but are linked
-                            link_map.append((neighbors[0], neighbors[1]))
+                            link_pairs.append((neighbors[0], neighbors[1]))
 
     # Second Pass
-    linked = [i for i in range(label_counter)]
-    for i, j in set(link_map):
-        merge(linked, i, j)
+    link_map = [i for i in range(label_counter)]
+    for i, j in set(link_pairs):
+        p = i
+        while (link_map[p] != p):
+            p = link_map[p]
+        c = j
+        while (link_map[c] != c):
+            c = link_map[c]
+        if p != c:
+            link_map[c] = p
 
     for row in range(image.shape[0]):
         for col in range(image.shape[1]):
             if (image[row][col] < 255):
-                labels[row][col] = find(linked, labels[row][col])
+                root = labels[row][col]
+                while (link_map[root] != root):
+                    root = link_map[root]
+                labels[row][col] = root
 
     json_map = []
     for label in np.unique(labels):
