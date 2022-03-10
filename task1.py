@@ -19,11 +19,10 @@ import glob
 import cv2
 import numpy as np
 
-# TODO
-import sys
-large_width = 400
-np.set_printoptions(linewidth=large_width)
-np.set_printoptions(threshold=sys.maxsize)
+# import sys
+# large_width = 400
+# np.set_printoptions(linewidth=large_width)
+# np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_image(img_path, show=False):
