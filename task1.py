@@ -156,7 +156,7 @@ def detection(data, grid_size, scaled_size):
     You are free to decide the return.
     """
 
-    bw_threshold = 100
+    bw_threshold = 90
 
     image = np.array(data)
     image = np.where(image <= bw_threshold, 0, 255)
