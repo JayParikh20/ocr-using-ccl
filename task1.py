@@ -20,10 +20,10 @@ import cv2
 import numpy as np
 
 # TODO
-# import sys
-# large_width = 400
-# np.set_printoptions(linewidth=large_width)
-# np.set_printoptions(threshold=sys.maxsize)
+import sys
+large_width = 400
+np.set_printoptions(linewidth=large_width)
+np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_image(img_path, show=False):
@@ -190,7 +190,8 @@ def detection(data, grid_size, scaled_size):
 
     # Second Pass
     link_map = [i for i in range(label_counter)]
-    for i, j in set(link_pairs):
+    link_pairs.sort()
+    for i, j in link_pairs:
         p = i
         while (link_map[p] != p):
             p = link_map[p]
@@ -223,6 +224,8 @@ def detection(data, grid_size, scaled_size):
     for index, item in enumerate(json_map):
         x, y, w, h = item["bbox"]
         img = np.array(data[y:y + h, x:x + w])
+        if(img.shape[0] == 0 or img.shape[1] == 0):
+            continue
         if(img.shape[0] >= img.shape[1]):
             img = cv2.resize(img, (round((scaled_size * img.shape[1]) / img.shape[0]), scaled_size), interpolation=cv2.INTER_NEAREST)
         else:
